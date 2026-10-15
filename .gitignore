@@ -1,0 +1,109 @@
+# ==============================================================================
+# Karcliq AI - Root .gitignore
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Operating System Files
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# ------------------------------------------------------------------------------
+# IDE & Editor Files
+# ------------------------------------------------------------------------------
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Eclipse / STS
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+# NetBeans
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# ------------------------------------------------------------------------------
+# Java & Maven (Backend - karcliq-rag/)
+# ------------------------------------------------------------------------------
+**/target/
+!**/src/main/**/target/
+!**/src/test/**/target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+.mvn/wrapper/maven-wrapper.jar
+hs_err_pid*
+replay_pid*
+
+# ------------------------------------------------------------------------------
+# Node.js & React/Vite (Frontend - karcliq-rag-ui/)
+# ------------------------------------------------------------------------------
+**/node_modules/
+**/dist/
+**/dist-ssr/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Node package manager logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------------------------
+# Environment Variables, Secrets & Local Overrides
+# ------------------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.local
+*.key
+*.pem
+*.pfx
+secrets.properties
+
+# ------------------------------------------------------------------------------
+# Temporary & Scratch Files
+# ------------------------------------------------------------------------------
+tmp/
+temp/
+scratch/
+*.bak
+
+# ------------------------------------------------------------------------------
+# Test Prompts & Benchmark Documents
+# ------------------------------------------------------------------------------
+TEST_PROMPTS_KARCLIQ.md
+**/TEST_PROMPTS_KARCLIQ.md
+
