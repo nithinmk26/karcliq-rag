@@ -1,8 +1,25 @@
 import React from 'react';
 import { BookOpen, GitBranch, Cpu } from 'lucide-react';
 
-export default function AnswerCard({ answer, sources = [], pipelineVersion = 'V2', model = 'gpt-4o-mini' }) {
-  const isV2 = pipelineVersion === 'V2';
+export default function AnswerCard({ 
+  answer, 
+  sources = [], 
+  pipelineVersion = 'V2', 
+  pipelineLabel = null,
+  rerankStrategy = null,
+  model = 'gpt-4o-mini' 
+}) {
+  const isCrossEncoder = rerankStrategy === 'CROSS_ENCODER' || pipelineVersion === 'V2_CROSS' || pipelineLabel?.includes('Cross-Encoder');
+  const isHybrid = rerankStrategy === 'HYBRID' || pipelineVersion === 'V2_HYBRID' || pipelineLabel?.includes('Hybrid');
+  const isV2 = pipelineVersion.startsWith('V2');
+
+  const badgeLabel = pipelineLabel || (
+    isCrossEncoder ? 'V2 Cross-Encoder' : (isHybrid ? 'V2 Hybrid Reranked' : (isV2 ? 'V2 Reranked' : 'V1 Direct Cosine'))
+  );
+
+  const badgeColor = isCrossEncoder ? '#38bdf8' : (isHybrid ? '#34d399' : '#c084fc');
+  const badgeBg = isCrossEncoder ? 'rgba(56, 189, 248, 0.12)' : (isHybrid ? 'rgba(52, 211, 153, 0.12)' : 'rgba(168, 85, 247, 0.12)');
+  const badgeBorder = isCrossEncoder ? '1px solid rgba(56, 189, 248, 0.3)' : (isHybrid ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(168, 85, 247, 0.3)');
 
   // Format simple markdown
   const renderContent = (text) => {
@@ -72,15 +89,15 @@ export default function AnswerCard({ answer, sources = [], pipelineVersion = 'V2
           fontFamily: 'var(--font-mono)',
           padding: '0.15rem 0.5rem',
           borderRadius: 'var(--radius-full)',
-          background: isV2 ? 'rgba(56, 189, 248, 0.1)' : 'rgba(168, 85, 247, 0.1)',
-          color: isV2 ? '#38bdf8' : '#c084fc',
-          border: isV2 ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid rgba(168, 85, 247, 0.25)',
+          background: badgeBg,
+          color: badgeColor,
+          border: badgeBorder,
           display: 'inline-flex',
           alignItems: 'center',
           gap: 4
         }}>
           <GitBranch size={11} />
-          {isV2 ? 'V2 Hybrid Reranked' : 'V1 Direct Cosine'}
+          {badgeLabel}
         </span>
 
         {sources && sources.length > 0 && (

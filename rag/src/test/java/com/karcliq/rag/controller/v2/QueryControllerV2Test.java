@@ -35,18 +35,35 @@ class QueryControllerV2Test {
         mockMvc = MockMvcBuilders.standaloneSetup(queryControllerV2).build();
     }
 
-    // 1. Positive Test: API call with query param returns 200 OK
+    // 1. Positive Test: API call with query param returns 200 OK with default CROSS_ENCODER
     @Test
     void testRagQueryV2_Positive() throws Exception {
         RagV2AnswerResponse mockResponse = new RagV2AnswerResponse(
-                "P0101", "V2 Diagnostic Answer", "gpt-4o-mini", List.of("guide.pdf"), 10, 1, Collections.emptyList(), "prompt"
+                "P0101", "V2 Diagnostic Answer", "gpt-4o-mini", List.of("guide.pdf"), 10, 1, Collections.emptyList(), "prompt", "CROSS_ENCODER"
         );
-        when(augmentationServiceV2.askWithRerank("P0101", 4, 10)).thenReturn(mockResponse);
+        when(augmentationServiceV2.askWithRerank("P0101", 4, 10, com.karcliq.rag.model.v2.RerankStrategy.CROSS_ENCODER)).thenReturn(mockResponse);
 
         mockMvc.perform(get("/api/v2/rag/query")
                         .param("query", "P0101"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.answer").value("V2 Diagnostic Answer"));
+                .andExpect(jsonPath("$.answer").value("V2 Diagnostic Answer"))
+                .andExpect(jsonPath("$.rerankStrategy").value("CROSS_ENCODER"));
+    }
+
+    // 1b. Positive Test: API call with HYBRID strategy returns 200 OK
+    @Test
+    void testRagQueryV2_HybridStrategy() throws Exception {
+        RagV2AnswerResponse mockResponse = new RagV2AnswerResponse(
+                "P0101", "Hybrid Diagnostic Answer", "gpt-4o-mini", List.of("guide.pdf"), 10, 1, Collections.emptyList(), "prompt", "HYBRID"
+        );
+        when(augmentationServiceV2.askWithRerank("P0101", 4, 10, com.karcliq.rag.model.v2.RerankStrategy.HYBRID)).thenReturn(mockResponse);
+
+        mockMvc.perform(get("/api/v2/rag/query")
+                        .param("query", "P0101")
+                        .param("rerankStrategy", "HYBRID"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.answer").value("Hybrid Diagnostic Answer"))
+                .andExpect(jsonPath("$.rerankStrategy").value("HYBRID"));
     }
 
     // 2. Negative Test: Missing required query param returns 400 Bad Request

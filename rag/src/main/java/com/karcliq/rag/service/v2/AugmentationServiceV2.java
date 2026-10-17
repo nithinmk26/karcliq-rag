@@ -33,7 +33,12 @@ public class AugmentationServiceV2 {
     private String modelName;
 
     public RagV2AnswerResponse askWithRerank(String query, int topK, int initialPoolSize) {
-        log.info("V2 RAG Pipeline: query='{}', topK={}, poolSize={}", query, topK, initialPoolSize);
+        return askWithRerank(query, topK, initialPoolSize, com.karcliq.rag.model.v2.RerankStrategy.CROSS_ENCODER);
+    }
+
+    public RagV2AnswerResponse askWithRerank(String query, int topK, int initialPoolSize, com.karcliq.rag.model.v2.RerankStrategy rerankStrategy) {
+        com.karcliq.rag.model.v2.RerankStrategy strategy = rerankStrategy != null ? rerankStrategy : com.karcliq.rag.model.v2.RerankStrategy.CROSS_ENCODER;
+        log.info("V2 RAG Pipeline: query='{}', topK={}, poolSize={}, strategy={}", query, topK, initialPoolSize, strategy);
 
         int effectivePoolSize = Math.max(initialPoolSize, 20);
         SearchRequest searchRequest = SearchRequest.builder()
@@ -45,7 +50,7 @@ public class AugmentationServiceV2 {
         log.info("Stage 1 retrieved {} candidate chunks", rawCandidates.size());
 
         // 2. STAGE 2: Rerank Candidates
-        RerankResult rerankResult = rerankingService.rerank(query, rawCandidates, topK);
+        RerankResult rerankResult = rerankingService.rerank(query, rawCandidates, topK, strategy);
         List<Document> rerankedDocs = rerankResult.selectedDocuments();
 
         // 3. STAGE 3: Augment Prompt
@@ -110,7 +115,8 @@ public class AugmentationServiceV2 {
                 rawCandidates.size(),
                 rerankedDocs.size(),
                 rerankResult.rerankedInfo(),
-                promptPreview
+                promptPreview,
+                strategy.name()
         );
     }
 }

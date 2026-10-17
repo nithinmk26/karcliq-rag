@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowUp, Sparkles, Wrench, Database, GitBranch } from 'lucide-react';
+import { ArrowUp, Sparkles, Wrench, Database, GitBranch, Sliders } from 'lucide-react';
 import ProcessLogsAccordion from './components/ProcessLogsAccordion';
 import AnswerCard from './components/AnswerCard';
 import IngestionModal from './components/IngestionModal';
+import SettingsModal from './components/SettingsModal';
 import { checkBackendStatus, executeV2Query, executeV1Query } from './services/api';
 
 const QUICK_SUGGESTIONS = [
@@ -16,7 +17,13 @@ export default function App() {
   const [backendStatus, setBackendStatus] = useState({ online: false });
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
-  const [selectedPipeline, setSelectedPipeline] = useState('V2'); // 'V2' | 'V1'
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [selectedPipeline, setSelectedPipeline] = useState('V2_CROSS'); // 'V2_CROSS' | 'V2_HYBRID' | 'V1'
+  const [settings, setSettings] = useState({
+    topK: 5,
+    initialPoolSize: 20,
+    rerankStrategy: 'CROSS_ENCODER'
+  });
   
   const [inputQuery, setInputQuery] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -62,6 +69,10 @@ export default function App() {
       { id: userMessageId, role: 'user', content: text }
     ]);
 
+    const isCross = activePipeline === 'V2_CROSS';
+    const isHybrid = activePipeline === 'V2_HYBRID';
+    const currentLabel = isCross ? 'V2 Cross-Encoder' : (isHybrid ? 'V2 Hybrid Search' : 'V1 Direct Cosine');
+
     // Initialize progressive process state
     startTimeRef.current = Date.now();
     setActiveProcessState({
@@ -69,7 +80,9 @@ export default function App() {
       elapsedMs: 0,
       steps: [],
       pipelineVersion: activePipeline,
-      endpointCalled: activePipeline === 'V2' ? '/api/v2/rag/query' : '/api/v1/rag/query'
+      pipelineLabel: currentLabel,
+      rerankStrategy: isCross ? 'CROSS_ENCODER' : (isHybrid ? 'HYBRID' : null),
+      endpointCalled: activePipeline.startsWith('V2') ? '/api/v2/rag/query' : '/api/v1/rag/query'
     });
 
     // Start timer ticker
@@ -90,21 +103,34 @@ export default function App() {
         });
       };
 
-      // Call Real Backend V2 or V1 API based on selection
-      const result = activePipeline === 'V2' 
-        ? await executeV2Query(
-            text,
-            5,
-            20,
-            isDemoMode || !backendStatus.online,
-            progressCallback
-          )
-        : await executeV1Query(
-            text,
-            5,
-            isDemoMode || !backendStatus.online,
-            progressCallback
-          );
+      // Call Real Backend V2 (Cross-Encoder / Hybrid) or V1 API based on selection
+      let result;
+      if (activePipeline === 'V2_CROSS') {
+        result = await executeV2Query(
+          text,
+          settings.topK,
+          settings.initialPoolSize,
+          isDemoMode || !backendStatus.online,
+          progressCallback,
+          'CROSS_ENCODER'
+        );
+      } else if (activePipeline === 'V2_HYBRID') {
+        result = await executeV2Query(
+          text,
+          settings.topK,
+          settings.initialPoolSize,
+          isDemoMode || !backendStatus.online,
+          progressCallback,
+          'HYBRID'
+        );
+      } else {
+        result = await executeV1Query(
+          text,
+          settings.topK,
+          isDemoMode || !backendStatus.online,
+          progressCallback
+        );
+      }
 
       clearInterval(timerRef.current);
       const totalElapsed = Date.now() - startTimeRef.current;
@@ -114,7 +140,9 @@ export default function App() {
         elapsedMs: totalElapsed,
         steps: result.executionLogSteps || activeProcessState?.steps || [],
         pipelineVersion: result.pipelineVersion || activePipeline,
-        endpointCalled: result.endpointCalled || (activePipeline === 'V2' ? '/api/v2/rag/query' : '/api/v1/rag/query')
+        rerankStrategy: result.rerankStrategy || (isCross ? 'CROSS_ENCODER' : (isHybrid ? 'HYBRID' : null)),
+        pipelineLabel: result.pipelineLabel || currentLabel,
+        endpointCalled: result.endpointCalled || (activePipeline.startsWith('V2') ? '/api/v2/rag/query' : '/api/v1/rag/query')
       };
 
       setMessages((prev) => [
@@ -124,7 +152,9 @@ export default function App() {
           role: 'assistant',
           answer: result.answer,
           sources: result.sources || [],
-          pipelineVersion: result.pipelineVersion || activePipeline,
+          pipelineVersion: activePipeline,
+          pipelineLabel: finalProcess.pipelineLabel,
+          rerankStrategy: finalProcess.rerankStrategy,
           processState: finalProcess
         }
       ]);
@@ -158,7 +188,7 @@ export default function App() {
             <span>Karcliq AI</span>
           </div>
 
-          {/* Central Engine Switcher: V2 vs V1 */}
+          {/* Central Engine Switcher: V2 Cross-Encoder vs V2 Hybrid vs V1 */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -166,24 +196,42 @@ export default function App() {
             padding: '2px',
             borderRadius: 'var(--radius-full)',
             border: '1px solid var(--border-subtle)',
-            fontSize: '0.74rem'
+            fontSize: '0.74rem',
+            gap: 2
           }}>
             <button
               type="button"
-              onClick={() => setSelectedPipeline('V2')}
+              onClick={() => setSelectedPipeline('V2_CROSS')}
               style={{
                 padding: '0.25rem 0.65rem',
                 borderRadius: 'var(--radius-full)',
                 border: 'none',
                 cursor: 'pointer',
                 fontWeight: 500,
-                background: selectedPipeline === 'V2' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                color: selectedPipeline === 'V2' ? '#38bdf8' : 'var(--text-muted)',
+                background: selectedPipeline === 'V2_CROSS' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
+                color: selectedPipeline === 'V2_CROSS' ? '#38bdf8' : 'var(--text-muted)',
                 transition: 'all 0.15s ease'
               }}
-              title="Two-Stage Hybrid Reranking (PGVector + Lexical + Source Diversity)"
+              title="Two-Stage Neural Cross-Encoder (Deep query ⨁ passage cross-attention)"
             >
-              V2 Reranked
+              ⚡ V2 Cross-Encoder
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedPipeline('V2_HYBRID')}
+              style={{
+                padding: '0.25rem 0.65rem',
+                borderRadius: 'var(--radius-full)',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 500,
+                background: selectedPipeline === 'V2_HYBRID' ? 'rgba(52, 211, 153, 0.18)' : 'transparent',
+                color: selectedPipeline === 'V2_HYBRID' ? '#34d399' : 'var(--text-muted)',
+                transition: 'all 0.15s ease'
+              }}
+              title="Two-Stage Hybrid Search (Vector Cosine + Lexical Overlap + MMR Source Diversity)"
+            >
+              🔀 V2 Hybrid
             </button>
             <button
               type="button"
@@ -194,17 +242,29 @@ export default function App() {
                 border: 'none',
                 cursor: 'pointer',
                 fontWeight: 500,
-                background: selectedPipeline === 'V1' ? 'rgba(168, 85, 247, 0.15)' : 'transparent',
+                background: selectedPipeline === 'V1' ? 'rgba(168, 85, 247, 0.18)' : 'transparent',
                 color: selectedPipeline === 'V1' ? '#c084fc' : 'var(--text-muted)',
                 transition: 'all 0.15s ease'
               }}
               title="Single-Stage Direct Cosine Search (No Reranker)"
             >
-              V1 Direct
+              📄 V1 Direct
             </button>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Pipeline Configuration Button */}
+            <button 
+              type="button" 
+              className="header-status-pill"
+              onClick={() => setIsSettingsModalOpen(true)}
+              title="Configure RAG parameters & reranker weights"
+              style={{ display: 'flex', alignItems: 'center', gap: 5 }}
+            >
+              <Sliders size={12} color="var(--accent-cyan)" />
+              <span>Settings</span>
+            </button>
+
             {/* Data Ingestion API Trigger Button */}
             <button 
               type="button" 
@@ -238,7 +298,12 @@ export default function App() {
           <div className="welcome-screen">
             <h1 className="welcome-title">Automotive Diagnostic Intelligence</h1>
             <p className="welcome-subtitle">
-              Ask diagnostic questions across Mercedes-Benz service manuals (C-Class & S-Class). Active pipeline: <strong style={{ color: selectedPipeline === 'V2' ? '#38bdf8' : '#c084fc' }}>{selectedPipeline === 'V2' ? 'V2 Two-Stage Reranked' : 'V1 Direct Cosine Search'}</strong>.
+              Ask diagnostic questions across Mercedes-Benz service manuals (C-Class & S-Class). Active pipeline:{' '}
+              <strong style={{
+                color: selectedPipeline === 'V2_CROSS' ? '#38bdf8' : (selectedPipeline === 'V2_HYBRID' ? '#34d399' : '#c084fc')
+              }}>
+                {selectedPipeline === 'V2_CROSS' ? '⚡ V2 Neural Cross-Encoder' : (selectedPipeline === 'V2_HYBRID' ? '🔀 V2 Hybrid Search' : '📄 V1 Direct Cosine Search')}
+              </strong>.
             </p>
 
             <div className="prompt-suggestions">
@@ -275,6 +340,8 @@ export default function App() {
                       answer={msg.answer} 
                       sources={msg.sources}
                       pipelineVersion={msg.pipelineVersion}
+                      pipelineLabel={msg.pipelineLabel}
+                      rerankStrategy={msg.rerankStrategy}
                     />
                   </>
                 )}
@@ -300,7 +367,7 @@ export default function App() {
         <div className="simple-input-bar">
           <textarea
             className="simple-textarea"
-            placeholder={`Ask automotive diagnostic question (${selectedPipeline === 'V2' ? 'V2 Two-Stage Reranked' : 'V1 Direct Retrieval'})...`}
+            placeholder={`Ask automotive diagnostic question (${selectedPipeline === 'V2_CROSS' ? '⚡ V2 Cross-Encoder' : (selectedPipeline === 'V2_HYBRID' ? '🔀 V2 Hybrid' : '📄 V1 Direct')})...`}
             rows={1}
             value={inputQuery}
             onChange={(e) => setInputQuery(e.target.value)}
@@ -318,6 +385,21 @@ export default function App() {
         </div>
       </div>
     </div>
+
+    {/* Pipeline Settings Configuration Modal */}
+    <SettingsModal 
+      isOpen={isSettingsModalOpen}
+      onClose={() => setIsSettingsModalOpen(false)}
+      settings={settings}
+      onSave={(newSettings) => {
+        setSettings(newSettings);
+        if (newSettings.rerankStrategy === 'CROSS_ENCODER') {
+          setSelectedPipeline('V2_CROSS');
+        } else if (newSettings.rerankStrategy === 'HYBRID') {
+          setSelectedPipeline('V2_HYBRID');
+        }
+      }}
+    />
 
     {/* Data Ingestion Modal */}
     <IngestionModal 

@@ -6,6 +6,6 @@ package com.karcliq.rag.model;
 public enum ChunkingStrategy {
     FIXED_SIZE_WITH_OVERLAP,
     SLIDING_WINDOW,
-    RECURSIVE,
-    SECTION_BASED
+        RECURSIVE,
+        SECTION_BASED
 }

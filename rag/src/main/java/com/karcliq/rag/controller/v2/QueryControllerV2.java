@@ -20,9 +20,9 @@ public class QueryControllerV2 {
     private final AugmentationServiceV2 augmentationServiceV2;
 
     @Operation(
-            summary = "V2 RAG with Reranking: Broad Retrieval + Diversity Reranking + LLM Generation",
+            summary = "V2 RAG with Reranking: Broad Retrieval + Choice of Cross-Encoder or Hybrid Search + LLM Generation",
             description = "Stage 1 retrieves a broad candidate pool from PGVector. " +
-                    "Stage 2 reranks candidates using hybrid vector-lexical scoring and source diversity balancing to prevent single-document clumping. " +
+                    "Stage 2 reranks candidates using either CROSS_ENCODER (neural cross-attention) or HYBRID (vector + lexical overlap + source diversity). " +
                     "Stage 3 generates a grounded answer citing all represented vehicle platforms."
     )
     @GetMapping("/rag/query")
@@ -43,10 +43,16 @@ public class QueryControllerV2 {
                     description = "Broad candidate pool size to retrieve in Stage 1 before reranking",
                     example = "10"
             )
-            @RequestParam(defaultValue = "10", required = false) int initialPoolSize
+            @RequestParam(defaultValue = "10", required = false) int initialPoolSize,
+
+            @Parameter(
+                    description = "Reranking strategy: CROSS_ENCODER (neural cross-attention) or HYBRID (vector + lexical + diversity)",
+                    example = "CROSS_ENCODER"
+            )
+            @RequestParam(defaultValue = "CROSS_ENCODER", required = false) com.karcliq.rag.model.v2.RerankStrategy rerankStrategy
     ) {
-        log.info("Received V2 RAG Query: '{}', topK: {}, poolSize: {}", query, topK, initialPoolSize);
-        RagV2AnswerResponse response = augmentationServiceV2.askWithRerank(query, topK, initialPoolSize);
+        log.info("Received V2 RAG Query: '{}', topK: {}, poolSize: {}, strategy: {}", query, topK, initialPoolSize, rerankStrategy);
+        RagV2AnswerResponse response = augmentationServiceV2.askWithRerank(query, topK, initialPoolSize, rerankStrategy);
         return ResponseEntity.ok(response);
     }
 }

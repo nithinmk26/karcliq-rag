@@ -33,8 +33,10 @@ export async function executeV2Query(
   topK = 4,
   initialPoolSize = 10,
   forceSimulation = false,
-  onProgressStep = null
+  onProgressStep = null,
+  rerankStrategy = 'CROSS_ENCODER'
 ) {
+  const isCrossEncoder = rerankStrategy === 'CROSS_ENCODER';
   const stepProgression = [
     {
       id: 1,
@@ -52,13 +54,20 @@ export async function executeV2Query(
       level: 'INFO',
       log: `com.karcliq.rag.service.RetrievalService: Scanned vector_store index. Retrieved ${initialPoolSize} candidates.`
     },
-    {
+    isCrossEncoder ? {
+      id: 3,
+      title: 'Stage 2: Neural Cross-Encoder Reranking',
+      desc: 'Joint query-document cross-attention scoring via deep transformer layers',
+      duration: '310ms',
+      level: 'INFO',
+      log: `com.karcliq.rag.service.v2.RerankingService: Cross-Encoder scored candidates, suppressing wrong-platform false positives.`
+    } : {
       id: 3,
       title: 'Stage 2: Hybrid Reranking & Diversity Balancing',
-      desc: 'Applying 55% Vector Cosine + 35% Lexical Overlap + 10% Source Diversity',
+      desc: 'Applying 50% Vector Cosine + 40% Lexical Overlap + 10% Source Diversity',
       duration: '160ms',
       level: 'DEBUG',
-      log: `com.karcliq.rag.service.v2.HybridScorer: Computing cross-scoring to balance C-Class and S-Class guides.`
+      log: `com.karcliq.rag.service.v2.RerankingService: Computing hybrid score to balance C-Class and S-Class guides.`
     },
     {
       id: 4,
@@ -96,7 +105,7 @@ export async function executeV2Query(
         if (onProgressStep) onProgressStep({ currentStep: 4, totalSteps: 5, completedSteps: stepProgression.slice(0, 4) });
       }, 900);
 
-      const url = `${BASE_URL}/v2/rag/query?query=${encodeURIComponent(query)}&topK=${topK}&initialPoolSize=${initialPoolSize}`;
+      const url = `${BASE_URL}/v2/rag/query?query=${encodeURIComponent(query)}&topK=${topK}&initialPoolSize=${initialPoolSize}&rerankStrategy=${rerankStrategy}`;
       const res = await fetch(url);
 
       clearTimeout(timer1);
@@ -110,6 +119,11 @@ export async function executeV2Query(
           onProgressStep({ currentStep: 5, totalSteps: 5, completedSteps: stepProgression });
         }
 
+        const effectiveStrategy = rawData.rerankStrategy || rerankStrategy;
+        const pipelineLabel = effectiveStrategy === 'CROSS_ENCODER' 
+          ? 'V2 Cross-Encoder' 
+          : 'V2 Hybrid Reranked';
+
         return {
           query: rawData.query || query,
           answer: rawData.answer || 'No answer returned from backend.',
@@ -121,7 +135,8 @@ export async function executeV2Query(
           augmentedPromptPreview: rawData.augmentedPromptPreview || '',
           executionLogSteps: stepProgression,
           pipelineVersion: 'V2',
-          pipelineLabel: 'V2 Hybrid Reranked',
+          rerankStrategy: effectiveStrategy,
+          pipelineLabel: pipelineLabel,
           endpointCalled: '/api/v2/rag/query',
           isRealBackend: true
         };
@@ -132,7 +147,7 @@ export async function executeV2Query(
   }
 
   // Fallback to simulation
-  return await simulateProgressiveV2Query(query, topK, initialPoolSize, onProgressStep);
+  return await simulateProgressiveV2Query(query, topK, initialPoolSize, onProgressStep, rerankStrategy);
 }
 
 /**
@@ -283,7 +298,8 @@ export async function executeProcessPdfs(params, onProgressStep = null) {
 /**
  * Simulation Fallback for V2 Query
  */
-async function simulateProgressiveV2Query(query, topK, initialPoolSize, onProgressStep) {
+async function simulateProgressiveV2Query(query, topK, initialPoolSize, onProgressStep, rerankStrategy = 'CROSS_ENCODER') {
+  const isCrossEncoder = rerankStrategy === 'CROSS_ENCODER';
   const steps = [
     {
       id: 1,
@@ -301,13 +317,20 @@ async function simulateProgressiveV2Query(query, topK, initialPoolSize, onProgre
       level: 'INFO',
       log: `com.karcliq.rag.service.RetrievalService: Scanned vector_store table in PostgreSQL PGVector.`
     },
-    {
+    isCrossEncoder ? {
+      id: 3,
+      title: 'Stage 2: Neural Cross-Encoder Reranking',
+      desc: 'Joint query-document cross-attention scoring via deep transformer layers',
+      duration: '280ms',
+      level: 'INFO',
+      log: `com.karcliq.rag.service.v2.RerankingService: Cross-Encoder scored candidates, suppressing wrong-platform false positives.`
+    } : {
       id: 3,
       title: 'Stage 2: Hybrid Scoring & Source Diversity Reranking',
-      desc: `Weighted rerank: 55% Vector Cosine + 35% Lexical Overlap + 10% Source Diversity`,
+      desc: 'Weighted rerank: 50% Vector Cosine + 40% Lexical Overlap + 10% Source Diversity',
       duration: '150ms',
       level: 'DEBUG',
-      log: `com.karcliq.rag.service.v2.HybridScorer: Rescored candidate pool to prevent single-platform clumping.`
+      log: `com.karcliq.rag.service.v2.RerankingService: Calculated hybrid score across candidates.`
     },
     {
       id: 4,
@@ -339,9 +362,11 @@ async function simulateProgressiveV2Query(query, topK, initialPoolSize, onProgre
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
 
+  const pipelineLabel = isCrossEncoder ? 'V2 Cross-Encoder' : 'V2 Hybrid Reranked';
+
   return {
     query,
-    answer: `### Diagnostic Findings (V2 Two-Stage Reranked)
+    answer: `### Diagnostic Findings (${pipelineLabel})
 * **C-Class (W206 / C 300)**: Reset adaptation matrix via "Engine -> Adaptations -> Reset Air Flow Calculation Matrix".
 * **S-Class (W223 / S 500)**: In XENTRY diagnostics, perform "Reset of Adaptation Data for Air Mass Flow Sensor".
 * **Validation**: Execute road-test drive cycle and confirm OBD-II readiness monitors.`,
@@ -356,7 +381,7 @@ async function simulateProgressiveV2Query(query, topK, initialPoolSize, onProgre
         initialRank: 1,
         rerankedRank: 1,
         initialScore: 0.571,
-        rerankScore: 0.604,
+        rerankScore: isCrossEncoder ? 0.940 : 0.604,
         contentSnippet: 'Automotive Technical Service Diagnostic Bulletin DIAG-C-CLASS-P0101.'
       },
       {
@@ -365,14 +390,15 @@ async function simulateProgressiveV2Query(query, topK, initialPoolSize, onProgre
         initialRank: 3,
         rerankedRank: 2,
         initialScore: 0.556,
-        rerankScore: 0.536,
+        rerankScore: isCrossEncoder ? 0.810 : 0.536,
         contentSnippet: 'Automotive Technical Service Diagnostic Bulletin DIAG-S-CLASS-P0101.'
       }
     ],
     augmentedPromptPreview: `System: Certified Mercedes-Benz technician prompt. User query: ${query}`,
     executionLogSteps: steps,
     pipelineVersion: 'V2',
-    pipelineLabel: 'V2 Hybrid Reranked',
+    rerankStrategy,
+    pipelineLabel: pipelineLabel,
     endpointCalled: '/api/v2/rag/query',
     isRealBackend: false
   };

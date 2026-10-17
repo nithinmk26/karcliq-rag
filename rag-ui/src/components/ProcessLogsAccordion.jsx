@@ -10,6 +10,8 @@ export default function ProcessLogsAccordion({ processState }) {
     elapsedMs = 0, 
     steps = [],
     pipelineVersion = 'V2',
+    pipelineLabel = null,
+    rerankStrategy = null,
     endpointCalled = '/api/v2/rag/query'
   } = processState || {};
 
@@ -18,7 +20,14 @@ export default function ProcessLogsAccordion({ processState }) {
     ? `Thinking (${seconds}s)...` 
     : `Thought for ${seconds}s`;
 
-  const isV2 = pipelineVersion === 'V2';
+  const isCrossEncoder = rerankStrategy === 'CROSS_ENCODER' || pipelineVersion === 'V2_CROSS' || pipelineLabel?.includes('Cross-Encoder');
+  const isHybrid = rerankStrategy === 'HYBRID' || pipelineVersion === 'V2_HYBRID' || pipelineLabel?.includes('Hybrid');
+  const badgeLabel = pipelineLabel || (
+    isCrossEncoder ? 'V2 Cross-Encoder' : (isHybrid ? 'V2 Hybrid Reranked' : (pipelineVersion.startsWith('V2') ? 'V2 Reranked' : 'V1 Direct'))
+  );
+  const badgeColor = isCrossEncoder ? '#38bdf8' : (isHybrid ? '#34d399' : '#c084fc');
+  const badgeBg = isCrossEncoder ? 'rgba(56, 189, 248, 0.12)' : (isHybrid ? 'rgba(52, 211, 153, 0.12)' : 'rgba(168, 85, 247, 0.12)');
+  const badgeBorder = isCrossEncoder ? '1px solid rgba(56, 189, 248, 0.25)' : (isHybrid ? '1px solid rgba(52, 211, 153, 0.25)' : '1px solid rgba(168, 85, 247, 0.25)');
 
   return (
     <div className="thought-accordion">
@@ -43,15 +52,15 @@ export default function ProcessLogsAccordion({ processState }) {
             fontFamily: 'var(--font-mono)',
             padding: '0.1rem 0.45rem',
             borderRadius: 'var(--radius-full)',
-            background: isV2 ? 'rgba(56, 189, 248, 0.12)' : 'rgba(168, 85, 247, 0.12)',
-            color: isV2 ? '#38bdf8' : '#c084fc',
-            border: isV2 ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid rgba(168, 85, 247, 0.25)',
+            background: badgeBg,
+            color: badgeColor,
+            border: badgeBorder,
             display: 'inline-flex',
             alignItems: 'center',
             gap: 3
           }}>
             <GitBranch size={10} />
-            {isV2 ? 'V2 Reranked' : 'V1 Direct'}
+            {badgeLabel}
           </span>
 
           {isRunning && steps.length > 0 && (
