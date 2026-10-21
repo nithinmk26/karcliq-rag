@@ -216,6 +216,10 @@ public class RerankingService {
                         Math.round(sc.finalScore * 1000.0) / 1000.0,
                         snippet
                 ));
+                log.info("[Cross-Encoder Rank #{}] Doc ID: {} | Source: {} | Initial Vec Score: {} | Neural Cross Score: {}",
+                        rank + 1, sc.document.getId(), sc.source,
+                        Math.round(sc.initialVecScore * 1000.0) / 1000.0,
+                        Math.round(sc.finalScore * 1000.0) / 1000.0);
             }
 
             log.info("Neural Cross-Encoder reranking completed. Top {} chunks selected.", topDocs.size());
