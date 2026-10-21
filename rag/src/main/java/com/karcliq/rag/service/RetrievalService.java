@@ -42,8 +42,14 @@ public class RetrievalService {
 
         SearchRequest searchRequest = builder.build();
         List<Document> documents = vectorStore.similaritySearch(searchRequest);
-
         log.info("Retrieved {} matching document chunks from PGVector", documents.size());
+
+        for (int i = 0; i < documents.size(); i++) {
+            Document doc = documents.get(i);
+            String source = (String) doc.getMetadata().getOrDefault("source", "UNKNOWN");
+            log.info("\n--- [V1 Retrieval Chunk #{}/{}] ---\nID: {}\nSource: {}\nContent:\n{}\n----------------------------------------",
+                    i + 1, documents.size(), doc.getId(), source, doc.getText() != null ? doc.getText().trim() : "");
+        }
 
         List<QueryResultItem> items = documents.stream()
                 .map(doc -> {

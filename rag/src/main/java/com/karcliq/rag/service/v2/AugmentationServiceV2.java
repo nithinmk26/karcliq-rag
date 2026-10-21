@@ -33,7 +33,12 @@ public class AugmentationServiceV2 {
     private String modelName;
 
     public RagV2AnswerResponse askWithRerank(String query, int topK, int initialPoolSize) {
-        log.info("V2 RAG Pipeline: query='{}', topK={}, poolSize={}", query, topK, initialPoolSize);
+        return askWithRerank(query, topK, initialPoolSize, com.karcliq.rag.model.v2.RerankStrategy.CROSS_ENCODER);
+    }
+
+    public RagV2AnswerResponse askWithRerank(String query, int topK, int initialPoolSize, com.karcliq.rag.model.v2.RerankStrategy rerankStrategy) {
+        com.karcliq.rag.model.v2.RerankStrategy strategy = rerankStrategy != null ? rerankStrategy : com.karcliq.rag.model.v2.RerankStrategy.CROSS_ENCODER;
+        log.info("V2 RAG Pipeline: query='{}', topK={}, poolSize={}, strategy={}", query, topK, initialPoolSize, strategy);
 
         int effectivePoolSize = Math.max(initialPoolSize, 20);
         SearchRequest searchRequest = SearchRequest.builder()
@@ -42,11 +47,26 @@ public class AugmentationServiceV2 {
                 .build();
 
         List<Document> rawCandidates = vectorStore.similaritySearch(searchRequest);
-        log.info("Stage 1 retrieved {} candidate chunks", rawCandidates.size());
+        log.info("Stage 1 retrieved {} candidate chunks from PGVector", rawCandidates.size());
+
+        for (int i = 0; i < rawCandidates.size(); i++) {
+            Document doc = rawCandidates.get(i);
+            String source = (String) doc.getMetadata().getOrDefault("source", "Diagnostic Manual");
+            log.info("\n--- [V2 Stage 1 Candidate Chunk #{}/{}] ---\nID: {}\nSource: {}\nContent:\n{}\n----------------------------------------",
+                    i + 1, rawCandidates.size(), doc.getId(), source, doc.getText() != null ? doc.getText().trim() : "");
+        }
 
         // 2. STAGE 2: Rerank Candidates
-        RerankResult rerankResult = rerankingService.rerank(query, rawCandidates, topK);
+        RerankResult rerankResult = rerankingService.rerank(query, rawCandidates, topK, strategy);
         List<Document> rerankedDocs = rerankResult.selectedDocuments();
+
+        log.info("Stage 2 selected top {} reranked chunks for generation (Strategy: {})", rerankedDocs.size(), strategy);
+        for (int i = 0; i < rerankedDocs.size(); i++) {
+            Document doc = rerankedDocs.get(i);
+            String source = (String) doc.getMetadata().getOrDefault("source", "Diagnostic Manual");
+            log.info("\n--- [V2 Final Reranked Chunk #{}/{}] ---\nID: {}\nSource: {}\nContent:\n{}\n----------------------------------------",
+                    i + 1, rerankedDocs.size(), doc.getId(), source, doc.getText() != null ? doc.getText().trim() : "");
+        }
 
         // 3. STAGE 3: Augment Prompt
         Set<String> uniqueSources = new LinkedHashSet<>();
@@ -110,7 +130,8 @@ public class AugmentationServiceV2 {
                 rawCandidates.size(),
                 rerankedDocs.size(),
                 rerankResult.rerankedInfo(),
-                promptPreview
+                promptPreview,
+                strategy.name()
         );
     }
 }

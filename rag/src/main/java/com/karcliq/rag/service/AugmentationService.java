@@ -44,7 +44,14 @@ public class AugmentationService {
         }
 
         List<Document> matchedDocs = vectorStore.similaritySearch(requestBuilder.build());
-        log.info("Retrieved {} context chunks for augmentation", matchedDocs.size());
+        log.info("Retrieved {} context chunks for V1 augmentation", matchedDocs.size());
+
+        for (int i = 0; i < matchedDocs.size(); i++) {
+            Document doc = matchedDocs.get(i);
+            String source = (String) doc.getMetadata().getOrDefault("source", "Diagnostic Manual");
+            log.info("\n--- [V1 Context Chunk #{}/{}] ---\nID: {}\nSource: {}\nContent:\n{}\n----------------------------------------",
+                    i + 1, matchedDocs.size(), doc.getId(), source, doc.getText() != null ? doc.getText().trim() : "");
+        }
 
         Set<String> uniqueSources = new LinkedHashSet<>();
         StringBuilder contextText = new StringBuilder();

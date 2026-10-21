@@ -13,8 +13,22 @@ public record RagV2AnswerResponse(
         int initialCandidatesRetrieved,
         int topKSelected,
         List<RerankedChunkInfo> rerankedChunks,
-        String augmentedPromptPreview
+        String augmentedPromptPreview,
+        String rerankStrategy
 ) {
+    public RagV2AnswerResponse(
+            String query,
+            String answer,
+            String modelUsed,
+            List<String> sources,
+            int initialCandidatesRetrieved,
+            int topKSelected,
+            List<RerankedChunkInfo> rerankedChunks,
+            String augmentedPromptPreview
+    ) {
+        this(query, answer, modelUsed, sources, initialCandidatesRetrieved, topKSelected, rerankedChunks, augmentedPromptPreview, "HYBRID");
+    }
+
     public record RerankedChunkInfo(
             String id,
             String source,
