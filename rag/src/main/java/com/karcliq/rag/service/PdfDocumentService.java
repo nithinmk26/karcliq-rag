@@ -16,9 +16,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/**
- * Service to load, parse, chunk PDF documents and save embeddings into PGVector.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -63,7 +60,6 @@ public class PdfDocumentService {
             }
         }
 
-        // Print details of each chunked Document model to console
         printChunksToConsole(allChunks, strategy);
 
         // Generate embeddings and save to PGVector database
@@ -111,9 +107,6 @@ public class PdfDocumentService {
         }
     }
 
-    /**
-     * 1. Fixed-size chunks with overlap (characters).
-     */
     private List<Document> chunkFixedSizeWithOverlap(String text, Map<String, Object> baseMetadata, int chunkSize, int overlap, String docHeader) {
         List<Document> chunks = new ArrayList<>();
         int length = text.length();
@@ -136,9 +129,6 @@ public class PdfDocumentService {
         return chunks;
     }
 
-    /**
-     * 2. Sliding-window chunks (word-based window advancing by step size).
-     */
     private List<Document> chunkSlidingWindow(String text, Map<String, Object> baseMetadata, int windowWords, int stepWords, String docHeader) {
         List<Document> chunks = new ArrayList<>();
         String[] words = text.split("\\s+");
@@ -158,9 +148,6 @@ public class PdfDocumentService {
         return chunks;
     }
 
-    /**
-     * 3. Recursive Character Text Splitter (LangChain/RAG course implementation)
-     */
     private List<Document> chunkRecursive(String text, Map<String, Object> baseMetadata, int chunkSize, int chunkOverlap, String docHeader) {
         List<String> splits = splitText(text, List.of("\n\n", "\n", " ", ""), chunkSize);
         List<String> mergedChunks = mergeSplits(splits, chunkSize, chunkOverlap);
@@ -220,9 +207,6 @@ public class PdfDocumentService {
         return docs;
     }
 
-    /**
-     * 4. Section-based chunks (splits by diagnostic/technical section headings).
-     */
     private List<Document> chunkSectionBased(String text, Map<String, Object> baseMetadata, String docHeader) {
         Pattern sectionPattern = Pattern.compile("(?m)^(?=[A-Z][A-Za-z0-9\\s]{2,30}:|^[0-9]+\\.\\s+[A-Z])");
         String[] sections = sectionPattern.split(text);

@@ -105,8 +105,8 @@ public class RerankingService {
 
                 String src = (String) doc.getMetadata().getOrDefault("source", "Manual");
                 String contentSnippet = doc.getText() != null ? doc.getText().trim() : "";
-                if (contentSnippet.length() > 600) {
-                    contentSnippet = contentSnippet.substring(0, 600) + "...";
+                if (contentSnippet.length() > 1000) {
+                    contentSnippet = contentSnippet.substring(0, 1000) + "...";
                 }
 
                 candidatesText.append(String.format("### Candidate [%d]\nID: %s\nSource: %s\nContent:\n%s\n\n",
@@ -231,10 +231,6 @@ public class RerankingService {
         }
     }
 
-    /**
-     * Hybrid Search Reranker.
-     * Rule-based combination of Vector Cosine + Query Keyword Overlap + MMR Source Diversity.
-     */
     public RerankResult rerankHybrid(String query, List<Document> candidates, int topK) {
         log.info("Executing Hybrid Reranking (Vector + Lexical + Diversity) for query: '{}'", query);
 

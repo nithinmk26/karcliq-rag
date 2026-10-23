@@ -40,7 +40,7 @@ public class AugmentationServiceV2 {
         com.karcliq.rag.model.v2.RerankStrategy strategy = rerankStrategy != null ? rerankStrategy : com.karcliq.rag.model.v2.RerankStrategy.CROSS_ENCODER;
         log.info("V2 RAG Pipeline: query='{}', topK={}, poolSize={}, strategy={}", query, topK, initialPoolSize, strategy);
 
-        int effectivePoolSize = Math.max(initialPoolSize, 20);
+        int effectivePoolSize = Math.max(initialPoolSize, 10);
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(query)
                 .topK(Math.max(effectivePoolSize, topK))
@@ -49,14 +49,6 @@ public class AugmentationServiceV2 {
         List<Document> rawCandidates = vectorStore.similaritySearch(searchRequest);
         log.info("Stage 1 retrieved {} candidate chunks from PGVector", rawCandidates.size());
 
-        for (int i = 0; i < rawCandidates.size(); i++) {
-            Document doc = rawCandidates.get(i);
-            String source = (String) doc.getMetadata().getOrDefault("source", "Diagnostic Manual");
-            log.info("\n--- [V2 Stage 1 Candidate Chunk #{}/{}] ---\nID: {}\nSource: {}\nContent:\n{}\n----------------------------------------",
-                    i + 1, rawCandidates.size(), doc.getId(), source, doc.getText() != null ? doc.getText().trim() : "");
-        }
-
-        // 2. STAGE 2: Rerank Candidates
         RerankResult rerankResult = rerankingService.rerank(query, rawCandidates, topK, strategy);
         List<Document> rerankedDocs = rerankResult.selectedDocuments();
 
@@ -68,7 +60,6 @@ public class AugmentationServiceV2 {
                     i + 1, rerankedDocs.size(), doc.getId(), source, doc.getText() != null ? doc.getText().trim() : "");
         }
 
-        // 3. STAGE 3: Augment Prompt
         Set<String> uniqueSources = new LinkedHashSet<>();
         StringBuilder contextText = new StringBuilder();
 
@@ -85,7 +76,6 @@ public class AugmentationServiceV2 {
             }
         }
 
-        // System message supporting ingested documentation with explicit LLM knowledge fallback for follow-ups/concepts
         String systemInstruction = """
                 You are a certified Mercedes-Benz automotive diagnostic technician and master diagnostic specialist.
                 Answer the user's question adhering to the following protocol:
@@ -102,7 +92,7 @@ public class AugmentationServiceV2 {
                    - You MUST provide an accurate, clear explanation using your general automotive engineering knowledge.
                    - CRITICAL MANDATE: You MUST explicitly inform the user that this explanation is NOT based on the fed/uploaded documentation, but is synthesized from general automotive engineering knowledge.
                    - Place this clear disclaimer at the top of your answer:
-                     "> ℹ️ **Note**: *The provided workshop manuals do not contain a specific definition for this term. The following explanation is based on general automotive engineering knowledge (not from the uploaded diagnostic manuals):*"
+                     "> **Note**: *The provided workshop manuals do not contain a specific definition for this term. The following explanation is based on general automotive engineering knowledge (not from the uploaded diagnostic manuals):*"
                 
                 3. Keep answers technical, direct, structured, and concise.
                 """;
@@ -114,7 +104,6 @@ public class AugmentationServiceV2 {
         Message userMessage = new UserMessage(userPromptText);
         Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
 
-        // 4. STAGE 4: Generate Answer
         log.info("Generating answer with reranked context using model: {}", modelName);
         String answer = chatModel.call(prompt).getResult().getOutput().getText();
 

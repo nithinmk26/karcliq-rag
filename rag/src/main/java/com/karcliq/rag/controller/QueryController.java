@@ -22,29 +22,16 @@ public class QueryController {
     private final RetrievalService retrievalService;
     private final AugmentationService augmentationService;
 
-    @Operation(
-            summary = "1. Retrieval Only: Query document chunks (Top K)",
-            description = "Performs cosine similarity search against PGVector embeddings using the query string. " +
-                    "Returns the top K most relevant text chunks along with metadata, without reranking or LLM generation."
-    )
+    @Operation(summary = " Retrieval Only: Query document chunks (Top K)")
     @GetMapping("/query")
     public ResponseEntity<QueryResponse> query(
-            @Parameter(
-                    description = "Diagnostic question or search query",
-                    example = "What are the symptoms of DTC P0101 in Mercedes-Benz C-Class?"
-            )
+            @Parameter(description = "Diagnostic question or search query")
             @RequestParam String query,
 
-            @Parameter(
-                    description = "Number of top matching chunks to retrieve",
-                    example = "4"
-            )
+            @Parameter(description = "Number of top matching chunks to retrieve")
             @RequestParam(defaultValue = "4", required = false) int topK,
 
-            @Parameter(
-                    description = "Optional minimum similarity threshold (leave empty to retrieve all top-K matches)",
-                    required = false
-            )
+            @Parameter(description = "Optional minimum similarity threshold (leave empty to retrieve all top-K matches)")
             @RequestParam(required = false) Double similarityThreshold
     ) {
         log.info("Received V1 retrieval query: '{}', topK: {}, threshold: {}", query, topK, similarityThreshold);
@@ -52,32 +39,16 @@ public class QueryController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 2. Full RAG Augmentation + Generation endpoint.
-     */
-    @Operation(
-            summary = "2. RAG (Augment + Generate): Ask question and get grounded answer",
-            description = "Retrieves relevant chunks from PGVector, injects them into an augmented token-efficient prompt, " +
-                    "and queries OpenAI (gpt-4o-mini) to produce a precise answer citing source documents."
-    )
+    @Operation(summary = "RAG Ask question and get grounded answer")
     @GetMapping("/rag/query")
     public ResponseEntity<RagAnswerResponse> ragQuery(
-            @Parameter(
-                    description = "Diagnostic question to ask",
-                    example = "What are the primary symptoms associated with DTC P0101 in a Mercedes-Benz?"
-            )
+            @Parameter(description = "Diagnostic question to ask")
             @RequestParam String query,
 
-            @Parameter(
-                    description = "Number of context chunks to retrieve and inject",
-                    example = "4"
-            )
+            @Parameter(description = "Number of context chunks to retrieve and inject")
             @RequestParam(defaultValue = "4", required = false) int topK,
 
-            @Parameter(
-                    description = "Optional minimum similarity threshold (leave empty to retrieve all top-K matches)",
-                    required = false
-            )
+            @Parameter(description = "Optional minimum similarity threshold (leave empty to retrieve all top-K matches)")
             @RequestParam(required = false) Double similarityThreshold
     ) {
         log.info("Received V1 RAG Query: '{}', topK: {}, threshold: {}", query, topK, similarityThreshold);

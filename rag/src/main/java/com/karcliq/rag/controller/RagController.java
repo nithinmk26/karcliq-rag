@@ -9,9 +9,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Simple health/status endpoint for the RAG application.
- */
 @Slf4j
 @Tag(name = "Status", description = "Health endpoints")
 @RestController

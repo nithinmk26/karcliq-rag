@@ -20,48 +20,23 @@ public class PdfDocumentController {
 
     private final PdfDocumentService pdfDocumentService;
 
-    @Operation(
-            summary = "Read, parse and chunk automotive diagnostic PDFs",
-            description = "Loads all PDFs from the target directory into Document models (pageContent + metadata), " +
-                    "chunks them using the chosen strategy (RecursiveCharacterTextSplitter, Fixed-size, Sliding-window, or Section-based) " +
-                    "with configurable chunkSize (default: 1000) and chunkOverlap (default: 200), and logs chunk models to console."
-    )
+    @Operation(summary = "Read, parse and chunk automotive diagnostic PDFs")
     @PostMapping("/process-pdfs")
     public ResponseEntity<PdfProcessingResponse> processPdfs(
-            @Parameter(
-                    description = "Directory path containing PDF files",
-                    example = "C:\\AI\\automotive_diagnostic"
-            )
-            @RequestParam(defaultValue = "C:\\AI\\automotive_diagnostic", required = false)
-            String folderPath,
+            @Parameter(description = "Directory path containing PDF files")
+            @RequestParam(defaultValue = "C:\\AI\\automotive_diagnostic", required = false) String folderPath,
 
-            @Parameter(
-                    description = "Chunking strategy to apply",
-                    example = "RECURSIVE"
-            )
-            @RequestParam(defaultValue = "RECURSIVE", required = false)
-            ChunkingStrategy strategy,
+            @Parameter(description = "Chunking strategy to apply")
+            @RequestParam(defaultValue = "RECURSIVE", required = false) ChunkingStrategy strategy,
 
-            @Parameter(
-                    description = "Target chunk size in characters (course default: 1000)",
-                    example = "1000"
-            )
-            @RequestParam(defaultValue = "1000", required = false)
-            int chunkSize,
+            @Parameter(description = "Target chunk size in characters (course default: 1000)")
+            @RequestParam(defaultValue = "1000", required = false) int chunkSize,
 
-            @Parameter(
-                    description = "Chunk overlap in characters to preserve semantic context (course default: 200)",
-                    example = "200"
-            )
-            @RequestParam(defaultValue = "200", required = false)
-            int chunkOverlap,
+            @Parameter(description = "Chunk overlap in characters to preserve semantic context (course default: 200)")
+            @RequestParam(defaultValue = "200", required = false) int chunkOverlap,
 
-            @Parameter(
-                    description = "Clear previous chunks in PGVector table before storing new ones",
-                    example = "false"
-            )
-            @RequestParam(defaultValue = "false", required = false)
-            boolean clearExisting
+            @Parameter(description = "Clear previous chunks in PGVector table before storing new ones")
+            @RequestParam(defaultValue = "false", required = false) boolean clearExisting
     ) {
         log.info("Request to process PDFs. Folder: '{}', Strategy: {}, ChunkSize: {}, Overlap: {}, ClearExisting: {}",
                 folderPath, strategy, chunkSize, chunkOverlap, clearExisting);

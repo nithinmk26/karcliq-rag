@@ -16,11 +16,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
-/**
- * Service implementing the Augmentation & Generation phases of RAG.
- * Takes the retrieved context, constructs an optimized token-efficient prompt,
- * and calls the low-cost model (gpt-4o-mini) to generate grounded answers.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -46,13 +41,6 @@ public class AugmentationService {
         List<Document> matchedDocs = vectorStore.similaritySearch(requestBuilder.build());
         log.info("Retrieved {} context chunks for V1 augmentation", matchedDocs.size());
 
-        for (int i = 0; i < matchedDocs.size(); i++) {
-            Document doc = matchedDocs.get(i);
-            String source = (String) doc.getMetadata().getOrDefault("source", "Diagnostic Manual");
-            log.info("\n--- [V1 Context Chunk #{}/{}] ---\nID: {}\nSource: {}\nContent:\n{}\n----------------------------------------",
-                    i + 1, matchedDocs.size(), doc.getId(), source, doc.getText() != null ? doc.getText().trim() : "");
-        }
-
         Set<String> uniqueSources = new LinkedHashSet<>();
         StringBuilder contextText = new StringBuilder();
 
@@ -63,13 +51,14 @@ public class AugmentationService {
                 Document doc = matchedDocs.get(i);
                 String source = (String) doc.getMetadata().getOrDefault("source", "Diagnostic Manual");
                 uniqueSources.add(source);
+                log.info("\n--- [V1 Context Chunk #{}/{}] ---\nID: {}\nSource: {}\nContent:\n{}\n----------------------------------------",
+                        i + 1, matchedDocs.size(), doc.getId(), source, doc.getText() != null ? doc.getText().trim() : "");
 
                 contextText.append(String.format("--- CONTEXT CHUNK [%d] (Source: %s) ---\n%s\n\n",
                         i + 1, source, doc.getText().trim()));
             }
         }
 
-        // System message supporting ingested documentation with explicit LLM knowledge fallback for follow-ups/concepts
         String systemInstruction = """
                 You are a certified Mercedes-Benz automotive diagnostic technician and master diagnostic specialist.
                 Answer the user's question adhering to the following protocol:
@@ -85,7 +74,7 @@ public class AugmentationService {
                    - You MUST provide an accurate, clear explanation using your general automotive engineering knowledge.
                    - CRITICAL MANDATE: You MUST explicitly inform the user that this explanation is NOT based on the fed/uploaded documentation, but is synthesized from general automotive engineering knowledge.
                    - Place this clear disclaimer at the top of your answer:
-                     "> ℹ️ **Note**: *The provided workshop manuals do not contain a specific definition for this term. The following explanation is based on general automotive engineering knowledge (not from the uploaded diagnostic manuals):*"
+                     "> **Note**: *The provided workshop manuals do not contain a specific definition for this term. The following explanation is based on general automotive engineering knowledge (not from the uploaded diagnostic manuals):*"
                 
                 3. Keep answers technical, direct, structured, and concise.
                 """;
